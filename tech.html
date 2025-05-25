@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player with Sidebar Toggle - Fullscreen Start</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Basic reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background-color: #181818; /* Dark background */
+            display: flex; /* Use flex for layout */
+            font-family: "Roboto", Arial, sans-serif;
+            color: #fff;
+        }
+
+        /* Container for the video player area */
+        #player-column {
+            width: 100%;
+            height: 100%;
+            background-color: #000; /* Black background for player area */
+            position: relative;
+            transition: width 0.3s ease-in-out;
+            display: flex; /* Added to center player-container if player-column is not 100% */
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Video container inside the column - still centers video within its bounds */
+        #player-container {
+            width: 100%; /* Takes full width of player-column */
+            height: 100%; /* Takes full height of player-column */
+            display:flex;
+            justify-content:center;
+            align-items:center;
+        }
+
+
+        /* Video element itself */
+        video {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: pointer;
+            outline: none;
+            background-color: #000;
+        }
+
+        /* --- Sidebar Styles --- */
+        #sidebar {
+            width: 0;
+            flex-shrink: 0;
+            background-color: #181818;
+            padding: 0;
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+            border-left: none;
+            transition: width 0.3s ease-in-out, padding 0.3s ease-in-out, border-left 0.3s ease-in-out;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+         /* --- State when sidebar IS shown --- */
+        body.show-sidebar #sidebar {
+            width: 360px;
+            padding: 10px 15px 20px 15px;
+            border-left: 1px solid #303030;
+            opacity: 1;
+            visibility: visible;
+        }
+        body.show-sidebar #player-column {
+             width: calc(100% - 360px);
+        }
+
+
+        #sidebar h2 { font-size: 16px; margin-top: 10px; margin-bottom: 15px; color: #AAAAAA; }
+        .video-item { display: flex; margin-bottom: 12px; cursor: pointer; transition: background-color 0.2s ease; border-radius: 4px; }
+        .video-item:hover { background-color: #272727; }
+        .video-item.active { background-color: #303030; }
+        .thumbnail { flex-shrink: 0; width: 160px; height: 90px; margin-right: 10px; background-color: #333; border-radius: 4px; overflow: hidden; }
+        .thumbnail img { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .details { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; padding-top: 2px; }
+        .details .title { font-size: 14px; font-weight: 500; color: #F1F1F1; margin: 0 0 4px 0; line-height: 1.3; max-height: 2.6em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .details .channel, .details .meta { font-size: 12px; color: #AAAAAA; margin: 0 0 2px 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+
+        #sidebar { scrollbar-width: thin; scrollbar-color: #555 #181818; }
+        #sidebar::-webkit-scrollbar { width: 8px; }
+        #sidebar::-webkit-scrollbar-track { background: #181818; }
+        #sidebar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 4px; border: 2px solid #181818; }
+
+    </style>
+</head>
+<body >
+
+    <div id="player-column">
+         <div id="player-container">
+            <video id="player" playsinline loop muted>
+                 Your browser does not support HTML5 video.
+            </video>
+         </div>
+    </div>
+
+    <div id="sidebar">
+        <h2>Up next</h2>
+    </div>
+
+    <script>
+        const playerColumn = document.getElementById('player-column');
+        const playerContainer = document.getElementById('player-container');
+        const player = document.getElementById("player");
+        const sidebar = document.getElementById("sidebar");
+        const bodyElement = document.body;
+
+        const videoData = [
+           { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg", title: "Big Buck Bunny", channel: "Blender Foundation", meta: "1.2M views" },
+           { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg", title: "Elephants Dream", channel: "Blender Foundation", meta: "870K views" },
+           { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg", title: "Sintel", channel: "Blender Foundation", meta: "2.5M views" },
+           { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/TearsOfSteel.jpg", title: "Tears of Steel", channel: "Blender Institute", meta: "950K views" }
+        ];
+        let currentVideoIndex = 0;
+        let isUserInteracted = false;
+
+        function buildSidebar() {
+            const existingItems = sidebar.querySelectorAll('.video-item');
+            existingItems.forEach(item => item.remove());
+
+            videoData.forEach((video, index) => {
+                if (index === currentVideoIndex) return;
+                const item = document.createElement('div');
+                item.classList.add('video-item');
+                item.setAttribute('data-index', index);
+                const thumbDiv = document.createElement('div'); thumbDiv.classList.add('thumbnail');
+                const thumbImg = document.createElement('img'); thumbImg.src = video.thumbnail; thumbImg.alt = video.title; thumbDiv.appendChild(thumbImg);
+                const detailsDiv = document.createElement('div'); detailsDiv.classList.add('details');
+                const titleP = document.createElement('p'); titleP.classList.add('title'); titleP.textContent = video.title;
+                const channelP = document.createElement('p'); channelP.classList.add('channel'); channelP.textContent = video.channel;
+                const metaP = document.createElement('p'); metaP.classList.add('meta'); metaP.textContent = video.meta;
+                detailsDiv.appendChild(titleP); detailsDiv.appendChild(channelP); detailsDiv.appendChild(metaP);
+                item.appendChild(thumbDiv); item.appendChild(detailsDiv);
+
+                item.addEventListener('click', () => {
+                    loadVideo(index);
+                    // When a sidebar video is clicked, go back to the immersive app fullscreen mode
+                    enterApplicationFullscreenMode();
+                });
+                sidebar.appendChild(item);
+            });
+        }
+
+        function loadVideo(index) {
+            if (index >= 0 && index < videoData.length) {
+                currentVideoIndex = index;
+                player.poster = videoData[currentVideoIndex].thumbnail;
+                player.src = videoData[currentVideoIndex].src;
+                player.load();
+                console.log("Loading video:", player.src);
+                buildSidebar();
+
+                if (isUserInteracted) {
+                    player.muted = false;
+                    player.play().catch(e => console.log("Play request failed:", e));
+                } else {
+                    player.muted = true;
+                }
+            } else {
+                console.error("Invalid video index:", index);
+            }
+        }
+
+        // --- Application Fullscreen and Browser Fullscreen Management ---
+
+        function enterApplicationFullscreenMode() {
+            console.log("Entering application fullscreen mode (hiding sidebar, attempting browser FS).");
+            bodyElement.classList.remove('show-sidebar'); // Visually hide sidebar
+
+            // Element to make fullscreen (playerColumn or document.documentElement)
+            const elementToRequestFullscreen = playerColumn; // Using playerColumn
+
+            // Check if not already in browser fullscreen mode
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                if (elementToRequestFullscreen.requestFullscreen) {
+                    elementToRequestFullscreen.requestFullscreen().catch(err => console.warn(`Browser FS request failed: ${err.message}. Needs user gesture.`));
+                } else if (elementToRequestFullscreen.webkitRequestFullscreen) { /* Safari */
+                    elementToRequestFullscreen.webkitRequestFullscreen().catch(err => console.warn(`Browser FS (webkit) request failed: ${err.message}.`));
+                } else if (elementToRequestFullscreen.msRequestFullscreen) { /* IE11 */
+                    elementToRequestFullscreen.msRequestFullscreen().catch(err => console.warn(`Browser FS (ms) request failed: ${err.message}.`));
+                }
+            }
+        }
+
+        function exitApplicationFullscreenMode() {
+             console.log("Exiting application fullscreen mode (showing sidebar, attempting to exit browser FS).");
+             // If in browser fullscreen, attempt to exit
+             if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                 if (document.exitFullscreen) document.exitFullscreen();
+                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); // Safari
+                 else if (document.msExitFullscreen) document.msExitFullscreen(); // IE11
+             }
+             // If not in browser fullscreen (or after exiting), ensure sidebar is shown.
+             // The 'handleBrowserFullscreenChange' will also call this if ESC is used.
+             if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                bodyElement.classList.add('show-sidebar');
+             }
+        }
+
+        // Handles actual browser fullscreen state changes (e.g., user presses ESC)
+        function handleBrowserFullscreenChange() {
+            const isBrowserFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+            console.log("Browser fullscreen state changed. Is browser fullscreen:", isBrowserFullscreen);
+            if (isBrowserFullscreen) {
+                bodyElement.classList.remove('show-sidebar'); // Ensure sidebar is hidden
+            } else {
+                // When exiting browser fullscreen (e.g. via ESC), show the sidebar.
+                bodyElement.classList.add('show-sidebar');
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleBrowserFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleBrowserFullscreenChange); // Safari
+        document.addEventListener('msfullscreenchange', handleBrowserFullscreenChange);     // IE11
+
+
+        // --- Player Click Event ---
+        player.addEventListener('click', (event) => {
+             event.stopPropagation();
+
+            if (!isUserInteracted) {
+                isUserInteracted = true;
+                console.log("First user interaction.");
+                player.muted = false;
+                player.play().then(() => {
+                    console.log("Playing video after interaction. Entering app fullscreen mode.");
+                    enterApplicationFullscreenMode(); // Attempt to go to browser fullscreen
+                }).catch(e => {
+                    console.error("Play failed even after interaction:", e);
+                    enterApplicationFullscreenMode(); // Still try to go fullscreen visually
+                });
+            } else {
+                if (player.paused || player.ended) {
+                    player.play();
+                    console.log("Video Resumed.");
+                } else {
+                    player.pause();
+                    console.log("Video Paused.");
+                }
+            }
+        });
+
+
+        // --- Escape Key Listener ---
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+                console.log("Escape key pressed.");
+                // exitApplicationFullscreenMode will handle exiting browser FS if active,
+                // or just ensure sidebar is shown if not in browser FS.
+                exitApplicationFullscreenMode();
+          }
+        });
+
+        // --- Video End ---
+        player.addEventListener('ended', () => {
+            console.log("Video ended, loading next.");
+            const nextIndex = (currentVideoIndex + 1) % videoData.length;
+            loadVideo(nextIndex);
+            // if isUserInteracted, loadVideo will autoplay the next one
+        });
+
+        // --- Initial Setup ---
+        buildSidebar();
+        loadVideo(currentVideoIndex);
+        // Page starts with sidebar hidden (no 'show-sidebar' class)
+        // but NOT in browser fullscreen yet. First click on player will attempt that.
+        console.log("Player ready. Video loaded. Click video to play, unmute, and enter fullscreen. Press ESC to show sidebar/exit fullscreen.");
+
+    </script>
+
+</body>
+</html>

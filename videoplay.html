@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enhanced Video Player</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    /* All your existing CSS styles remain unchanged here */
+    body {
+      display: flex;
+      margin: 0;
+      font-family: "Roboto", Arial, sans-serif;
+      background-color: #181818;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #player-column {
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow-y: auto;
+        background-color: #181818;
+    }
+
+    #main-video {
+      position: relative;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    video {
+      width: 100%;
+      display: block;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-image: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 8px 15px;
+      font-size: 14px;
+      height: 50px;
+      box-sizing: border-box;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      pointer-events: none;
+    }
+
+    #main-video:hover .controls {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .control-btn {
+        cursor: pointer;
+        padding: 0 8px;
+        font-size: 20px;
+        border: none;
+        background: none;
+        color: white;
+        opacity: 0.9;
+    }
+    .control-btn:hover { opacity: 1; }
+    #playPause { display: none; }
+
+    .progress-container {
+      flex: 1;
+      margin: 0 10px;
+      display: flex;
+      align-items: center;
+    }
+    .progress { width: 100%; height: 5px; background: rgba(255, 255, 255, 0.3); border-radius: 3px; overflow: hidden; cursor: pointer; margin-right: 10px; position: relative; transform: translateY(3px); }
+    .progress:hover { height: 8px; }
+    .progress-filled { height: 100%; width: 0%; background: #ff0000; transition: width 0.1s linear, height 0.1s linear; }
+
+    #timeDisplay {
+        font-size: 13px;
+        min-width: 90px;
+        text-align: right;
+        margin-right: 8px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+     .volume-container { display: flex; align-items: center; margin-left: 8px; }
+     #volumeIcon { cursor: pointer; font-size: 22px; padding: 0 5px; user-select: none; }
+     #volumeIcon:hover { opacity: 0.8; }
+     #volumeSlider { width: 60px; height: 5px; cursor: pointer; margin-left: 5px; appearance: none; background: rgba(255, 255, 255, 0.3); border-radius: 3px; outline: none; transition: height 0.1s linear; transform: translateY(3px);}
+     #volumeSlider:hover { height: 8px; }
+     #volumeSlider::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; background: white; border-radius: 50%; cursor: pointer; transform: translateY(0px); }
+     #volumeSlider::-moz-range-thumb { width: 12px; height: 12px; background: white; border-radius: 50%; cursor: pointer; border: none; }
+
+    #ccBtn, #settingsBtn { font-size: 18px; position: relative; }
+
+    #sidebar {
+      flex: 1;
+      max-width: 400px;
+      background-color: #181818;
+      padding: 10px 15px 20px 15px;
+      height: 100vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+      border-left: 1px solid #303030;
+    }
+    #sidebar h2 { font-size: 16px; margin-top: 10px; margin-bottom: 15px; color: #AAAAAA; }
+    .video-item { display: flex; margin-bottom: 12px; cursor: pointer; transition: background-color 0.2s ease; border-radius: 4px; }
+    .video-item.active { background-color: #303030; }
+    .thumbnail { flex-shrink: 0; width: 160px; height: 90px; margin-right: 10px; background-color: #333; border-radius: 4px; overflow: hidden; }
+    .thumbnail img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .details { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; padding-top: 2px; }
+    .details .title { font-size: 14px; font-weight: 500; color: #F1F1F1; margin: 0 0 4px 0; line-height: 1.3; max-height: 2.6em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .details .channel, .details .meta { font-size: 12px; color: #AAAAAA; margin: 0 0 2px 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    #video-info-container {
+        padding: 15px 20px;
+        background-color: #181818;
+        border-top: 1px solid #303030;
+    }
+
+    #videoTitle { font-size: 18px; font-weight: 400; margin: 0 0 10px 0; line-height: 1.4; }
+
+    .channel-actions-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .channel-info { display: flex; align-items: center; margin-right: 15px; }
+    #channelAvatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; background-color: #555; object-fit: cover; }
+    .channel-name-subs { display: flex; flex-direction: column; }
+    #channelName { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+    #subscriberCount { font-size: 12px; color: #AAAAAA; }
+    .subscribe-btn { background-color: #c00; color: white; border: none; padding: 10px 16px; border-radius: 2px; font-size: 14px; font-weight: 500; cursor: pointer; margin-left: 20px; transition: background-color 0.2s ease; }
+    .subscribe-btn:hover { background-color: #900; }
+    .action-buttons { display: flex; align-items: center; }
+    .action-btn, .like-dislike-group button { background-color: rgba(255, 255, 255, 0.1); color: #F1F1F1; border: none; padding: 8px 15px; margin-left: 8px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; transition: background-color 0.2s ease; }
+    .action-btn:hover, .like-dislike-group button:hover { background-color: rgba(255, 255, 255, 0.2); }
+    .action-btn i, .like-dislike-group button i { margin-right: 6px; font-size: 16px; }
+    .like-dislike-group { background-color: rgba(255, 255, 255, 0.1); border-radius: 20px; display: flex; overflow: hidden; }
+    .like-dislike-group button { margin: 0; border-radius: 0; padding: 8px 12px; }
+    .like-dislike-group button:first-child { border-top-left-radius: 20px; border-bottom-left-radius: 20px; border-right: 1px solid rgba(255, 255, 255, 0.2); }
+    .like-dislike-group button:last-child { border-top-right-radius: 20px; border-bottom-right-radius: 20px; }
+    #moreActionsBtn { padding: 8px; width: 36px; height: 36px; justify-content: center; }
+    #moreActionsBtn i { margin-right: 0; }
+
+    #descriptionBox { background-color: rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 10px; font-size: 14px; margin-bottom: 20px; line-height: 1.5; cursor: pointer; max-height: 70px; overflow: hidden; transition: max-height 0.3s ease-out; }
+    #descriptionBox.expanded { max-height: 1000px; }
+    #viewsDate { font-weight: 500; margin-bottom: 5px; display: block; }
+    #descriptionText { white-space: pre-wrap; color: #F1F1F1; }
+    #showMoreDesc { display: block; font-weight: 500; color: #AAAAAA; margin-top: 8px; }
+    #descriptionBox.expanded #showMoreDesc { display: none; }
+    #showLessDesc { display: none; font-weight: 500; color: #AAAAAA; margin-top: 8px; }
+    #descriptionBox.expanded #showLessDesc { display: block; }
+
+    #commentsSection { margin-top: 24px; }
+    .comments-header { display: flex; align-items: center; margin-bottom: 20px; }
+    #commentCount { font-size: 16px; margin-right: 20px; }
+    .sort-by { display: flex; align-items: center; cursor: pointer; color: #AAAAAA; }
+    .sort-by i { margin-right: 8px; }
+    .add-comment { display: flex; align-items: center; }
+    .comment-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #555; margin-right: 12px; flex-shrink: 0; }
+    .comment-input { border: none; border-bottom: 1px solid #555; background: transparent; color: white; font-size: 14px; width: 100%; padding: 8px 0; outline: none; }
+    .comment-input:focus { border-bottom: 2px solid white; }
+  </style>
+</head>
+<body>
+
+  <!-- Wrapper for Player + Info -->
+  <div id="player-column">
+      <div id="main-video">
+        <video id="player" playsinline>
+          Your browser does not support HTML5 video.
+        </video>
+        <div class="controls">
+            <!-- Controls structure unchanged -->
+            <div class="progress-container">
+                <div class="progress" id="progressBar">
+                    <div class="progress-filled" id="progressFilled"></div>
+                </div>
+            </div>
+            <div id="timeDisplay">0:00 / 0:00</div>
+            <div class="volume-container">
+                <div id="volumeIcon" class="control-btn"><i class="fas fa-volume-up"></i></div>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+            </div>
+            <button id="nextBtn" class="control-btn" title="Next"><i class="fas fa-step-forward"></i></button>
+            <button id="ccBtn" class="control-btn" title="Subtitles/closed captions"><i class="fas fa-closed-captioning"></i></button>
+            <button id="settingsBtn" class="control-btn" title="Settings"><i class="fas fa-cog"></i></button>
+            <button id="fullscreenBtn" class="control-btn" title="Fullscreen"><i class="fas fa-expand"></i></button>
+        </div>
+      </div>
+
+      <!-- Video Info Area -->
+      <div id="video-info-container">
+          <!-- Info area structure unchanged -->
+          <h1 id="videoTitle">Video Title Loading...</h1>
+          <div class="channel-actions-row">
+              <!-- ... channel info ... -->
+              <div class="channel-info">
+                <img id="channelAvatar" src="" alt="Channel Avatar">
+                <div class="channel-name-subs">
+                    <div id="channelName">Channel Name</div>
+                    <div id="subscriberCount">-- subscribers</div>
+                </div>
+                <button class="subscribe-btn">Subscribe</button>
+            </div>
+              <!-- ... action buttons ... -->
+              <div class="action-buttons">
+                <div class="like-dislike-group">
+                    <button title="Like"><i class="far fa-thumbs-up"></i> <span class="like-count">Like</span></button>
+                    <button title="Dislike"><i class="far fa-thumbs-down"></i></button>
+                </div>
+                <button class="action-btn" title="Share"><i class="fas fa-share"></i> Share</button>
+                <button class="action-btn" title="Download"><i class="fas fa-download"></i> Download</button>
+                <button id="moreActionsBtn" class="action-btn" title="More actions"><i class="fas fa-ellipsis-h"></i></button>
+            </div>
+          </div>
+          <div id="descriptionBox">
+              <!-- ... description ... -->
+              <span id="viewsDate">-- views • -- ago</span>
+              <p id="descriptionText">Description loading...</p>
+              <span id="showMoreDesc">...more</span>
+              <span id="showLessDesc">Show less</span>
+          </div>
+          <div id="commentsSection">
+              <!-- ... comments ... -->
+              <div class="comments-header">
+                <span id="commentCount">--- Comments</span>
+                <div class="sort-by">
+                    <i class="fas fa-sort-amount-down"></i> Sort by
+                </div>
+            </div>
+            <div class="add-comment">
+                <img class="comment-avatar" src="" alt="Your avatar">
+                <input type="text" class="comment-input" placeholder="Add a comment...">
+            </div>
+          </div>
+      </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <h2>Up next</h2>
+  </div>
+
+  <script>
+    // --- Get Element References ---
+    // All your existing 'const ... = document.getElementById(...)' lines remain unchanged
+    const player = document.getElementById("player");
+    const progressBar = document.getElementById("progressBar");
+    const progressFilled = document.getElementById("progressFilled");
+    const timeDisplay = document.getElementById("timeDisplay");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const sidebar = document.getElementById("sidebar");
+    const mainVideoContainer = document.getElementById('main-video');
+    const volumeIcon = document.getElementById('volumeIcon');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const ccBtn = document.getElementById('ccBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const videoInfoContainer = document.getElementById('video-info-container');
+    const videoTitle = document.getElementById('videoTitle');
+    const channelAvatar = document.getElementById('channelAvatar');
+    const channelName = document.getElementById('channelName');
+    const subscriberCount = document.getElementById('subscriberCount');
+    const descriptionBox = document.getElementById('descriptionBox');
+    const viewsDate = document.getElementById('viewsDate');
+    const descriptionText = document.getElementById('descriptionText');
+    const showMoreDesc = document.getElementById('showMoreDesc');
+    const showLessDesc = document.getElementById('showLessDesc');
+
+    // --- EXPANDED Video Data Structure ---
+    // Your videoData array remains unchanged
+    const videoData = [
+       {
+        src: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+        thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+        title: "Big Buck Bunny - Funny Animated Short Film",
+        channel: "Blender Foundation",
+        channelAvatar: "https://yt3.ggpht.com/ytc/AAUvwnhYNBEaE9AY447n6ILAz6Hretz0kDg3bhgD7FvV=s88-c-k-c0x00ffffff-no-rj",
+        subscribers: "1.1M subscribers",
+        views: "1,254,870 views",
+        uploadedDate: "Apr 10, 2008",
+        description: "Big Buck Bunny tells the story of a giant rabbit with a heart bigger than himself. When one sunny day three rodents rudely harass him, something snaps... and the rabbit ain't no bunny anymore! \n\nFollow the official Blender Institute channel for more great shorts!"
+      },
+      {
+        src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+        thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg",
+        title: "Elephants Dream - Open Source Movie",
+        channel: "Blender Foundation",
+        channelAvatar: "https://yt3.ggpht.com/ytc/AAUvwnhYNBEaE9AY447n6ILAz6Hretz0kDg3bhgD7FvV=s88-c-k-c0x00ffffff-no-rj",
+        subscribers: "1.1M subscribers",
+        views: "870,345 views",
+        uploadedDate: "Sep 28, 2006",
+        description: "The first Blender Open Movie, released in 2006.\n\nTwo strange characters explore a capricious and seemingly infinite machine."
+      },
+      {
+        src: "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        thumbnail: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg",
+        title: "Sintel - Third Blender Open Movie",
+        channel: "Blender Foundation",
+        channelAvatar: "https://yt3.ggpht.com/ytc/AAUvwnhYNBEaE9AY447n6ILAz6Hretz0kDg3bhgD7FvV=s88-c-k-c0x00ffffff-no-rj",
+        subscribers: "1.1M subscribers",
+        views: "2,503,112 views",
+        uploadedDate: "Sep 27, 2010",
+        description: "A wandering warrior finds herself pitted against a dragon after discovering a hidden cave.\n\nDirected by Colin Levy."
+      },
+       // Add more video objects...
+    ];
+    let currentVideoIndex = 0;
+    let lastVolume = 1;
+
+    // --- Core Player Functions ---
+    // All your existing functions (formatTime, updateTime, click listener, etc.) remain unchanged
+    function formatTime(seconds) { const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${mins}:${secs < 10 ? "0" : ""}${secs}`; }
+    function updateTime() { const current = player.currentTime; const duration = player.duration || 0; progressFilled.style.width = duration ? `${(current / duration) * 100}%` : '0%'; timeDisplay.textContent = `${formatTime(current)} / ${formatTime(duration)}`; }
+    player.addEventListener("timeupdate", updateTime);
+    player.addEventListener("loadedmetadata", () => { updateTime(); updateVolumeUI(); });
+    mainVideoContainer.addEventListener('click', (event) => { if (event.target.closest('.controls')) return; if (player.paused || player.ended) player.play(); else player.pause(); });
+    progressBar.addEventListener("click", (e) => { const rect = progressBar.getBoundingClientRect(); const x = e.clientX - rect.left; const w = progressBar.offsetWidth; const dur = player.duration; if(dur) player.currentTime = (x / w) * dur; });
+    fullscreenBtn.addEventListener("click", () => { if (!document.fullscreenElement) { mainVideoContainer.requestFullscreen().catch(err => console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`)); } else { document.exitFullscreen(); } });
+    nextBtn.addEventListener("click", loadNextVideo);
+    function loadNextVideo() { currentVideoIndex = (currentVideoIndex + 1) % videoData.length; changeVideo(currentVideoIndex); }
+    player.addEventListener('ended', loadNextVideo);
+
+    // --- Sidebar Functions ---
+    // Your buildSidebar and highlightCurrentVideoItem functions remain unchanged
+    function buildSidebar() {
+        sidebar.innerHTML = '<h2>Up next</h2>'; // Clear previous items but keep heading
+        videoData.forEach((video, index) => {
+            const item = document.createElement('div'); item.classList.add('video-item'); item.setAttribute('data-index', index);
+            const thumbDiv = document.createElement('div'); thumbDiv.classList.add('thumbnail'); const thumbImg = document.createElement('img'); thumbImg.src = video.thumbnail; thumbImg.alt = video.title; thumbDiv.appendChild(thumbImg);
+            const detailsDiv = document.createElement('div'); detailsDiv.classList.add('details'); const titleP = document.createElement('p'); titleP.classList.add('title'); titleP.textContent = video.title; const channelP = document.createElement('p'); channelP.classList.add('channel'); channelP.textContent = video.channel; const metaP = document.createElement('p'); metaP.classList.add('meta'); metaP.textContent = video.views.split(' ')[0] + ' views'; detailsDiv.appendChild(titleP); detailsDiv.appendChild(channelP); detailsDiv.appendChild(metaP);
+            item.appendChild(thumbDiv); item.appendChild(detailsDiv);
+            item.addEventListener('click', () => { changeVideo(index); });
+            sidebar.appendChild(item);
+        });
+        highlightCurrentVideoItem();
+    }
+    function highlightCurrentVideoItem() {
+        const allItems = sidebar.querySelectorAll('.video-item');
+        allItems.forEach(item => {
+            item.classList.toggle('active', parseInt(item.getAttribute('data-index')) === currentVideoIndex);
+        });
+    }
+
+    // --- Volume Control Logic ---
+    // Your volume functions remain unchanged
+    function updateVolumeUI() { if (player.muted || player.volume === 0) { volumeIcon.innerHTML = '<i class="fas fa-volume-mute"></i>'; volumeSlider.value = 0; } else if (player.volume < 0.5) { volumeIcon.innerHTML = '<i class="fas fa-volume-down"></i>'; volumeSlider.value = player.volume; } else { volumeIcon.innerHTML = '<i class="fas fa-volume-up"></i>'; volumeSlider.value = player.volume; } }
+    volumeSlider.addEventListener('input', () => { player.volume = volumeSlider.value; player.muted = volumeSlider.value == 0; if (player.volume > 0) { lastVolume = player.volume; } updateVolumeUI(); });
+    volumeIcon.addEventListener('click', () => { player.muted = !player.muted; if (!player.muted && player.volume === 0) { player.volume = lastVolume > 0 ? lastVolume : 0.5; } else if (player.muted && player.volume > 0) { lastVolume = player.volume; } updateVolumeUI(); });
+
+
+    // --- Change Video Function ---
+    // Your changeVideo function remains unchanged
+    function changeVideo(index) {
+      if (index >= 0 && index < videoData.length) {
+          currentVideoIndex = index;
+          const video = videoData[currentVideoIndex];
+          player.src = video.src;
+          // player.play(); // Decide if you want autoplay
+          videoTitle.textContent = video.title;
+          channelAvatar.src = video.channelAvatar;
+          channelAvatar.alt = `${video.channel} Avatar`;
+          channelName.textContent = video.channel;
+          subscriberCount.textContent = video.subscribers;
+          viewsDate.textContent = `${video.views} • ${video.uploadedDate}`;
+          descriptionText.textContent = video.description;
+          descriptionBox.classList.remove('expanded');
+          highlightCurrentVideoItem();
+          updateVolumeUI();
+          updateTime(); // Update time display for the new video
+      } else {
+          console.error("Invalid video index:", index);
+      }
+    }
+
+     // --- Description Box Toggle ---
+     // Your descriptionBox listener remains unchanged
+     descriptionBox.addEventListener('click', () => {
+         descriptionBox.classList.toggle('expanded');
+     });
+
+    // --- Placeholder Listeners for new buttons ---
+    // Your ccBtn and settingsBtn listeners remain unchanged
+    ccBtn.addEventListener('click', () => {
+        console.log('CC Button Clicked (no functionality yet)');
+        ccBtn.classList.toggle('active');
+    });
+    settingsBtn.addEventListener('click', () => {
+        console.log('Settings Button Clicked (no functionality yet)');
+    });
+
+    // --- Initial Setup ---
+    // Your initial setup calls remain unchanged
+    buildSidebar();
+    changeVideo(currentVideoIndex);
+    updateVolumeUI();
+
+    // ================================================================
+    // ====== ADD THIS JAVASCRIPT CODE FOR KEYBOARD LISTENER =========
+    // ================================================================
+    document.addEventListener('keydown', (event) => {
+      console.log("Key pressed in browser:", event.key); // Add this line for debugging
+
+      // --- Play/Pause with Space (Gesture 5) ---
+      if (event.key === ' ' || event.keyCode === 32) {
+        event.preventDefault(); // Stop default spacebar scroll
+        if (player.paused || player.ended) {
+          player.play();
+          console.log("JS: Playing video via Space");
+        } else {
+          player.pause();
+          console.log("JS: Pausing video via Space");
+        }
+      }
+      // --- Seek Forward with Right Arrow (Gesture 1) ---
+      else if (event.key === 'ArrowRight' || event.keyCode === 39) {
+         console.log("JS: Seeking forward via Right Arrow");
+         player.currentTime = Math.min(player.duration || 0, player.currentTime + 5); // Seek 5s
+         updateTime(); // Update display immediately
+      }
+      // --- Seek Backward with Left Arrow (Gesture 2) ---
+      else if (event.key === 'ArrowLeft' || event.keyCode === 37) {
+          console.log("JS: Seeking backward via Left Arrow");
+         player.currentTime = Math.max(0, player.currentTime - 5); // Seek back 5s
+         updateTime(); // Update display immediately
+      }
+      // --- Volume Up with Up Arrow (Gesture 3) ---
+      else if (event.key === 'ArrowUp' || event.keyCode === 38) {
+           event.preventDefault(); // Stop default arrow scroll
+           console.log("JS: Volume up via Up Arrow");
+           let currentVolume = player.volume;
+           player.volume = Math.min(1, currentVolume + 0.1); // Increase by 10%
+           if (player.volume > 0) player.muted = false; // Unmute if increasing from 0
+           lastVolume = player.volume; // Store potentially new lastVolume
+           updateVolumeUI();
+      }
+       // --- Volume Down with Down Arrow (Gesture 4) ---
+       else if (event.key === 'ArrowDown' || event.keyCode === 40) {
+           event.preventDefault(); // Stop default arrow scroll
+           console.log("JS: Volume down via Down Arrow");
+           let currentVolume = player.volume;
+           player.volume = Math.max(0, currentVolume - 0.1); // Decrease by 10%
+           if (player.volume > 0) lastVolume = player.volume; // Store potentially new lastVolume
+           if (player.volume == 0) player.muted = true; // Mute if volume reaches 0
+           updateVolumeUI();
+       }
+       // Add more 'else if' blocks here for other keys/gestures if needed
+    });
+    // ================================================================
+    // ============= END OF ADDED JAVASCRIPT CODE =====================
+    // ================================================================
+
+  </script>
+
+</body>  
+</html>           
